@@ -1,1 +1,25 @@
+CREATE INDEX ON :Movie(id);
+CREATE INDEX ON :Movie(title);
 
+//Create Movie and RevenueFact nodes, link together
+LOAD CSV WITH HEADERS FROM 'file:///MovieRevenue.csv' AS line
+CREATE (m:Movie {id:line.Rank, studio:line.Studio, title:line.Title, year:line.Year})
+CREATE (r:RevenueFact {rank:line.Rank, worldwide:toFloat(line.Worldwide), domestic:toFloat(line.Domestic), overseas:toFloat(line.Overseas)})
+CREATE (m)-[:HAS_REVENUE_FACT]->(r);
+
+//Create RatingFact nodes and lookup Movie node, link together
+LOAD CSV WITH HEADERS FROM 'file:///MovieRatingGenerated.csv' AS line
+MATCH (m:Movie {id:line.Rank})
+CREATE (r:RatingFact {rating:toFloat(line.Rating)})
+CREATE (m)-[:HAS_RATING_FACT]->(r);
+
+
+//Now for some queries
+//Movies by worldwide revenue and rating, sorted by worldwide revenue desc
+MATCH (revFact:RevenueFact)<--(m:Movie)-->(rateFact:RatingFact)
+RETURN m.title AS Title, revFact.worldwide AS Worldwide, rateFact.rating AS Rating ORDER BY Worldwide DESC;
+
+//Studios by worldwide revenue, sorted by worldwide revenue desc
+MATCH (revFact:RevenueFact)<--(m:Movie)
+WITH m.studio AS Studio, sum(revFact.worldwide) AS totalRev
+RETURN Studio, totalRev as `Total Worldwide Revenue` ORDER BY totalRev DESC;
